@@ -102,3 +102,16 @@ dist
 
 # TernJS port file
 .tern-port
+
+.idea/*
+.yalc
+yalc.lock
+.nyc_output
+build
+node_modules
+src/**.js
+coverage
+*.log
+yarn.lock
+types
+types/*
