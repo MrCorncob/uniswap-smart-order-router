@@ -1,8 +1,8 @@
-import { flags } from '@oclif/command';
-import { Protocol } from '@uniswap/router-sdk';
-import { Currency, Percent, TradeType } from '@uniswap/sdk-core';
+import {flags} from '@oclif/command';
+import {Protocol} from '@uniswap/router-sdk';
+import {Currency, Percent, TradeType} from '@uniswap/sdk-core';
 import dotenv from 'dotenv';
-import { ethers } from 'ethers';
+import {ethers} from 'ethers';
 import _ from 'lodash';
 import {
   ID_TO_CHAIN_ID,
@@ -11,8 +11,8 @@ import {
   parseAmount,
   SwapRoute,
 } from '../../src';
-import { TO_PROTOCOL } from '../../src/util/protocols';
-import { BaseCommand } from '../base-command';
+import {TO_PROTOCOL} from '../../src/util/protocols';
+import {BaseCommand} from '../base-command';
 
 dotenv.config();
 
@@ -36,8 +36,7 @@ export class Quote extends BaseCommand {
     forceCrossProtocol: flags.boolean({ required: false, default: false }),
   };
 
-  async run() {
-    const { flags } = this.parse(Quote);
+  async doProcess({flags}: { flags: any }): Promise<SwapRoute | null> {
     const {
       tokenIn: tokenInStr,
       tokenOut: tokenOutStr,
@@ -109,10 +108,10 @@ export class Quote extends BaseCommand {
         TradeType.EXACT_INPUT,
         recipient
           ? {
-              deadline: 100,
-              recipient,
-              slippageTolerance: new Percent(5, 10_000),
-            }
+            deadline: 100,
+            recipient,
+            slippageTolerance: new Percent(5, 10_000),
+          }
           : undefined,
         {
           blockNumber: this.blockNumber,
@@ -141,10 +140,10 @@ export class Quote extends BaseCommand {
         TradeType.EXACT_OUTPUT,
         recipient
           ? {
-              deadline: 100,
-              recipient,
-              slippageTolerance: new Percent(5, 10_000),
-            }
+            deadline: 100,
+            recipient,
+            slippageTolerance: new Percent(5, 10_000),
+          }
           : undefined,
         {
           blockNumber: this.blockNumber - 10,
@@ -173,31 +172,41 @@ export class Quote extends BaseCommand {
           debug ? '' : 'Run in debug mode for more info'
         }.`
       );
+      return null;
+    }
+
+
+    return swapRoutes;
+  }
+
+  async run() {
+    const { flags } = this.parse(Quote);
+    const swapRoutes = await this.doProcess({flags: flags});
+
+    if (!swapRoutes) {
+      console.log(JSON.stringify({
+        error: 'no route found'
+      }))
       return;
     }
 
-    const {
-      blockNumber,
-      estimatedGasUsed,
-      estimatedGasUsedQuoteToken,
-      estimatedGasUsedUSD,
-      gasPriceWei,
-      methodParameters,
-      quote,
-      quoteGasAdjusted,
-      route: routeAmounts,
-    } = swapRoutes;
+    if (swapRoutes.route && swapRoutes.quote) {
+      return this.logSwapResults(
+        swapRoutes?.route,
+        swapRoutes?.quote,
+        swapRoutes?.quoteGasAdjusted,
+        swapRoutes?.estimatedGasUsedQuoteToken,
+        swapRoutes?.estimatedGasUsedUSD,
+        swapRoutes?.methodParameters,
+        swapRoutes?.blockNumber,
+        swapRoutes?.estimatedGasUsed,
+        swapRoutes?.gasPriceWei
+      );
+    }
 
-    this.logSwapResults(
-      routeAmounts,
-      quote,
-      quoteGasAdjusted,
-      estimatedGasUsedQuoteToken,
-      estimatedGasUsedUSD,
-      methodParameters,
-      blockNumber,
-      estimatedGasUsed,
-      gasPriceWei
-    );
+  }
+
+  async runRestful() {
+
   }
 }

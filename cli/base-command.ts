@@ -314,33 +314,34 @@ export abstract class BaseCommand extends Command {
     const tokenPath = _.map(routeAmounts[0]!.tokenPath, (token) => `${token.address}`);
 
     const routeStr = [];
-      
+
     const poolFeePath = _.map(pools.pools, (pool) => `${pool instanceof Pool ? `${pool.fee}` : '0'}`);
 
-    
+
 
     for (let i = 0; i < tokenPath.length-1; i++) {
 
-      let object = { 
-          "token_address_0" : tokenPath[i], 
-          "token_address_1" : tokenPath[i+1], 
+      let object = {
+          "token_address_0" : tokenPath[i],
+          "token_address_1" : tokenPath[i+1],
           "fee": poolFeePath[i]
         };
 
       routeStr.push(object);
     }
 
-    let response = { 
+    let response = {
       // 'feePath': routeAmountsToString(routeAmounts),
       feePath: routeStr,
       'path': tokenPath,
       'exactIn': quote.toFixed(10),
       'gasAdjustedQuoteIn': quoteGasAdjusted.toFixed(10),
       'gasUsedQuoteToken:': estimatedGasUsedQuoteToken.toFixed(6),
-      'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),      
+      'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),
     };
 
     this.logger.info(JSON.stringify(response));
+    this.logger.info('hello xxx');
 
     // this.logger.info(`Best Route:`);
     // this.logger.info(JSON.stringify(routeAmounts));

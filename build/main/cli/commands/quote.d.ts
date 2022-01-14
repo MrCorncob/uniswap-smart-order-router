@@ -1,4 +1,5 @@
 import { flags } from '@oclif/command';
+import { SwapRoute } from '../../src';
 import { BaseCommand } from '../base-command';
 export declare class Quote extends BaseCommand {
     static description: string;
@@ -30,5 +31,9 @@ export declare class Quote extends BaseCommand {
         debug: import("@oclif/parser/lib/flags").IBooleanFlag<boolean>;
         debugJSON: import("@oclif/parser/lib/flags").IBooleanFlag<boolean>;
     };
+    doProcess({ flags }: {
+        flags: any;
+    }): Promise<SwapRoute | null>;
     run(): Promise<void>;
+    runRestful(): Promise<void>;
 }
