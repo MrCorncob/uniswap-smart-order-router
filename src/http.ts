@@ -17,6 +17,8 @@ const debugLog: debug.IDebugger = debug('app');
 app.use(express.json())
 app.use(cors());
 
+console.log('process.env.JSON_RPC_PROVIDER_POLYGON', process.env.JSON_RPC_PROVIDER_POLYGON);
+
 const loggerOptions: expressWinston.LoggerOptions = {
   transports: [new winston.transports.Console()],
   format: winston.format.combine(

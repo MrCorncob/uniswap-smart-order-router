@@ -1,6 +1,6 @@
 import {ChainId} from "../../util";
 
-import Joi from "Joi";
+import Joi from "joi";
 
 const QuoteRequestDTO = Joi.object({
   version: Joi.number().integer(),
