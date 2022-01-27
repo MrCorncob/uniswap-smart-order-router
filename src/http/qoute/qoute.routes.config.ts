@@ -2,6 +2,7 @@
 import {CommonRoutesConfig} from '../common/common.routes.config';
 import express from 'express';
 import RequestDTOSchema from './qoute.dto.config';
+// import JSBI from 'jsbi';
 import {
   AlphaRouter,
   IRouter,
@@ -19,7 +20,7 @@ import {
   nativeOnChain,
   parseAmount, setGlobalLogger
 } from "../../util";
-import {
+import {  
   Currency,
   CurrencyAmount,
   Percent,
@@ -46,8 +47,12 @@ import {
 import bunyanDebugStream from "bunyan-debug-stream";
 import NodeCache from "node-cache";
 import DEFAULT_TOKEN_LIST from '@uniswap/default-token-list';
-import {MethodParameters, Pool} from "@uniswap/v3-sdk";
+import {
+  MethodParameters, 
+  // Pool
+} from "@uniswap/v3-sdk";
 
+// import { routeAmountsToString } from '../../util/routes';
 
 ethers.utils.Logger.globalLogger();
 ethers.utils.Logger.setLogLevel(ethers.utils.Logger.levels.DEBUG);
@@ -63,6 +68,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
 
   static getSwapResults(
+    amountDecimals: string,
     routeAmounts: RouteWithValidQuote[],
     quote: CurrencyAmount<Currency>,
     quoteGasAdjusted: CurrencyAmount<Currency>,
@@ -78,38 +84,167 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
     }
 
+    // console.log("routeAmounts=>", JSON.stringify(routeAmounts));
+    // console.log("amountDecimals=>", amountDecimals);
 
-    const pools = routeAmounts[0]!.route as V3Route
-    const tokenPath = _.map(routeAmounts[0]!.tokenPath, (token) => `${token.address}`);
+    // console.log("routeAmounts[0]!.amount=>", routeAmounts[0]!.amount.toFixed(10));
 
-    const routeStr = [];
+    
+    // console.log("percent=>", routeAmounts[0]!.percent);
 
-    const poolFeePath = _.map(pools.pools, (pool) => `${pool instanceof Pool ? `${pool.fee}` : '0'}`);
+    // console.log("poolAddresses=>", routeAmounts[0]!.poolAddresses);
 
+    // console.log("routeAmounts.length=>", routeAmounts.length);
+    
+    let routeArray = [];
+    
+    let routerStringArray = []; 
 
+    for (let i = 0; i < routeAmounts.length; i++) {
 
-    for (let i = 0; i < tokenPath.length-1; i++) {
+      
+      const route = routeAmounts[i]
 
-      let object = {
-        "token_address_0" : tokenPath[i],
-        "token_address_1" : tokenPath[i+1],
-        "fee": poolFeePath[i]
-      };
+      const routerPool = route!.route as V3Route
 
-      routeStr.push(object);
+      let poolArray = [];
+
+      let routerStr = `[${route!.protocol }] ${route!.percent.toFixed(2)}% = `; 
+      
+         
+      for (let k = 0; k < routerPool!.pools.length; k++) {        
+
+        const pool = routerPool.pools[k];
+
+        let poolStr = `${pool!.token0.symbol} -- ${pool!.fee / 10000}% --> ${pool!.token1.symbol}`;
+
+        // console.log("amountString=>", route!.amount!.numerator.toString());
+        // console.log("amountString=>", route!.amount!.toFixed(10));
+
+        // protocol:
+        interface RouteObject {
+          [key: string]: any
+        }
+
+      
+        let routeObject:RouteObject = {
+          "type" : route!.protocol + '-pool',
+          "poolAddress" : route!.poolAddresses[i],
+          "percent": route!.percent,  
+
+          "rawQuote": route!.rawQuote.toString(),  
+          
+          "fee": pool!.fee,
+          "liquidity": pool!.liquidity.toString(),
+          "sqrtRatioX96": pool!.sqrtRatioX96.toString(),
+          "tickCurrent": pool!.tickCurrent,
+          "tokenIn": pool!.token0,
+          "tokenOut": pool!.token1,        
+        };
+
+        if (routerPool!.pools.length == 1 ){
+          
+          let keyInt = 'amountIn';
+          routeObject[keyInt] = route!.amount!.toFixed(10);
+
+          let keyOut = 'amountOut';
+          routeObject[keyOut] = route!.quote.toFixed(10);
+
+        } else {
+          
+          if (k==0) {
+            let keyInt = 'amountIn';
+            routeObject[keyInt] = route!.amount!.toFixed(10);
+          }
+          
+          if (k == 1) {
+            let keyOut = 'amountOut';
+            routeObject[keyOut] = route!.quote.toFixed(10);
+          }
+
+        }
+
+        routerStr = `${routerStr}${poolStr}`
+
+        poolArray.push(routeObject);
+      }      
+
+      routeArray.push(poolArray)
+
+      routerStringArray.push(routerStr)
+
     }
 
-    let response = {
-      // 'feePath': routeAmountsToString(routeAmounts),
-      feePath: routeStr,
-      'path': tokenPath,
-      'exactIn': quote.toFixed(10),
-      'gasAdjustedQuoteIn': quoteGasAdjusted.toFixed(10),
-      'gasUsedQuoteToken:': estimatedGasUsedQuoteToken.toFixed(6),
-      'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),
+    // console.log("quote=>", JSBI.toNumber(quote.numerator));
+    // console.log("quoteString=>", quote!.numerator.toString());
+
+    
+    
+    
+
+    let response = {      
+      // amount: ethers.utils.parseEther(amountDecimals).toString(),
+      amountInDecimals: amountDecimals,
+      amountOutDecimals: quote.toFixed(10),
+      amountOut:quote!.numerator.toString(),
+
+      blockNumber: blockNumber.toString(),
+      estimatedGasUsed: estimatedGasUsed.toString(),
+      gasPriceWei: gasPriceWei.toString(),
+      gasAdjustedQuoteIn: quoteGasAdjusted.toFixed(10),
+      gasUsedQuoteToken: estimatedGasUsedQuoteToken.toFixed(6),
+      gasUsedUSD: estimatedGasUsedUSD.toFixed(6),         
+      route: routeArray,
+      routerString: routerStringArray.join(', '),
     };
 
    return response;
+    
+  //   console.log("routeArray", routeArray);
+  
+  
+  //   const pools = routeAmounts[0]!.route as V3Route
+  //   const tokenPath = _.map(routeAmounts[0]!.tokenPath, (token) => `${token.address}`);
+
+  //   const routeStr = [];
+
+  //   const poolFeePath = _.map(pools.pools, (pool) => `${pool instanceof Pool ? `${pool.fee}` : '0'}`);
+
+
+
+  //   for (let i = 0; i < tokenPath.length-1; i++) {
+
+  //     let object = {
+  //       "token_address_0" : tokenPath[i],
+  //       "token_address_1" : tokenPath[i+1],
+  //       "fee": poolFeePath[i]
+  //     };
+
+  //     routeStr.push(object);
+  //   }
+
+  //   let response = {
+  //     // 'routeToString': routeAmountsToString(routeAmounts),
+  //     amount: ethers.utils.parseEther(amountDecimals).toString(),
+  //     amountDecimals: amountDecimals,
+  //     blockNumber: blockNumber.toString(),
+  //     estimatedGasUsed: estimatedGasUsed.toString(),
+  //     gasPriceWei: gasPriceWei.toString(),
+  //     'gasAdjustedQuoteIn': quoteGasAdjusted.toFixed(10),
+  //     'gasUsedQuoteToken:': estimatedGasUsedQuoteToken.toFixed(6),
+  //     'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),      
+  //     // quote: "30425068562906504830"
+  //     // quoteDecimals: "30.42506856290650483"
+  //     // quoteGasAdjusted: "30424380351955054160"
+  //     // quoteGasAdjustedDecimals: "30.42438035195505416"
+  //     // quoteId: "16d68"
+  //     feePath: routeStr,
+  //     'path': tokenPath,
+  //     'quoteDecimals': quote.toFixed(10),
+      
+  //   };
+
+  //  return response;
   }
 
   get logger() {
@@ -451,10 +586,13 @@ export class QuoteRoutes extends CommonRoutesConfig {
     }
 
     try {
-      console.log(requestBody);
+      // console.log("requestBody", requestBody);
       await this.init({data: requestBody});
 
       const result = await that.doProcess({flags: requestBody});
+
+      // console.log("result=>", JSON.stringify(result))
+      //console.log("routeAmounts=>", JSON.stringify(routeAmounts));
 
       if (!result) {
         res.status(400).json({
@@ -464,6 +602,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
       }
 
       const responseJson = QuoteRoutes.getSwapResults(
+        requestBody.amount,
         result?.route,
         result?.quote,
         result?.quoteGasAdjusted,
