@@ -184,9 +184,9 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
     let response = {      
       // amount: ethers.utils.parseEther(amountDecimals).toString(),
-      amountInDecimals: amountDecimals,
-      amountOutDecimals: quote.toFixed(10),
-      amountOut:quote!.numerator.toString(),
+      amountIn: amountDecimals,
+      amountOut: quote.toFixed(10),
+      amountOutRaw:quote!.numerator.toString(),
 
       blockNumber: blockNumber.toString(),
       estimatedGasUsed: estimatedGasUsed.toString(),
