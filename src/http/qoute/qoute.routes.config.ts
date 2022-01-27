@@ -20,7 +20,7 @@ import {
   nativeOnChain,
   parseAmount, setGlobalLogger
 } from "../../util";
-import {  
+import {
   Currency,
   CurrencyAmount,
   Percent,
@@ -48,7 +48,7 @@ import bunyanDebugStream from "bunyan-debug-stream";
 import NodeCache from "node-cache";
 import DEFAULT_TOKEN_LIST from '@uniswap/default-token-list';
 import {
-  MethodParameters, 
+  MethodParameters,
   // Pool
 } from "@uniswap/v3-sdk";
 
@@ -67,7 +67,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
   private _multicall2Provider: UniswapMulticallProvider | null = null;
 
 
-  static getSwapResults(
+  private getSwapResults(
     amountDecimals: string,
     routeAmounts: RouteWithValidQuote[],
     quote: CurrencyAmount<Currency>,
@@ -89,30 +89,30 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
     // console.log("routeAmounts[0]!.amount=>", routeAmounts[0]!.amount.toFixed(10));
 
-    
+
     // console.log("percent=>", routeAmounts[0]!.percent);
 
     // console.log("poolAddresses=>", routeAmounts[0]!.poolAddresses);
 
     // console.log("routeAmounts.length=>", routeAmounts.length);
-    
+
     let routeArray = [];
-    
-    let routerStringArray = []; 
+
+    let routerStringArray = [];
 
     for (let i = 0; i < routeAmounts.length; i++) {
 
-      
+
       const route = routeAmounts[i]
 
       const routerPool = route!.route as V3Route
 
       let poolArray = [];
 
-      let routerStr = `[${route!.protocol }] ${route!.percent.toFixed(2)}% = `; 
-      
-         
-      for (let k = 0; k < routerPool!.pools.length; k++) {        
+      let routerStr = `[${route!.protocol }] ${route!.percent.toFixed(2)}% = `;
+
+
+      for (let k = 0; k < routerPool!.pools.length; k++) {
 
         const pool = routerPool.pools[k];
 
@@ -126,24 +126,24 @@ export class QuoteRoutes extends CommonRoutesConfig {
           [key: string]: any
         }
 
-      
+
         let routeObject:RouteObject = {
           "type" : route!.protocol + '-pool',
           "poolAddress" : route!.poolAddresses[i],
-          "percent": route!.percent,  
+          "percent": route!.percent,
 
-          "rawQuote": route!.rawQuote.toString(),  
-          
+          "rawQuote": route!.rawQuote.toString(),
+
           "fee": pool!.fee,
           "liquidity": pool!.liquidity.toString(),
           "sqrtRatioX96": pool!.sqrtRatioX96.toString(),
           "tickCurrent": pool!.tickCurrent,
           "tokenIn": pool!.token0,
-          "tokenOut": pool!.token1,        
+          "tokenOut": pool!.token1,
         };
 
         if (routerPool!.pools.length == 1 ){
-          
+
           let keyInt = 'amountIn';
           routeObject[keyInt] = route!.amount!.toFixed(10);
 
@@ -151,12 +151,12 @@ export class QuoteRoutes extends CommonRoutesConfig {
           routeObject[keyOut] = route!.quote.toFixed(10);
 
         } else {
-          
+
           if (k==0) {
             let keyInt = 'amountIn';
             routeObject[keyInt] = route!.amount!.toFixed(10);
           }
-          
+
           if (k == 1) {
             let keyOut = 'amountOut';
             routeObject[keyOut] = route!.quote.toFixed(10);
@@ -167,7 +167,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
         routerStr = `${routerStr}${poolStr}`
 
         poolArray.push(routeObject);
-      }      
+      }
 
       routeArray.push(poolArray)
 
@@ -178,11 +178,11 @@ export class QuoteRoutes extends CommonRoutesConfig {
     // console.log("quote=>", JSBI.toNumber(quote.numerator));
     // console.log("quoteString=>", quote!.numerator.toString());
 
-    
-    
-    
 
-    let response = {      
+
+
+
+    let response = {
       // amount: ethers.utils.parseEther(amountDecimals).toString(),
       amountIn: amountDecimals,
       amountOut: quote.toFixed(10),
@@ -193,16 +193,16 @@ export class QuoteRoutes extends CommonRoutesConfig {
       gasPriceWei: gasPriceWei.toString(),
       gasAdjustedQuoteIn: quoteGasAdjusted.toFixed(10),
       gasUsedQuoteToken: estimatedGasUsedQuoteToken.toFixed(6),
-      gasUsedUSD: estimatedGasUsedUSD.toFixed(6),         
+      gasUsedUSD: estimatedGasUsedUSD.toFixed(6),
       route: routeArray,
       routerString: routerStringArray.join(', '),
     };
 
    return response;
-    
+
   //   console.log("routeArray", routeArray);
-  
-  
+
+
   //   const pools = routeAmounts[0]!.route as V3Route
   //   const tokenPath = _.map(routeAmounts[0]!.tokenPath, (token) => `${token.address}`);
 
@@ -232,7 +232,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
   //     gasPriceWei: gasPriceWei.toString(),
   //     'gasAdjustedQuoteIn': quoteGasAdjusted.toFixed(10),
   //     'gasUsedQuoteToken:': estimatedGasUsedQuoteToken.toFixed(6),
-  //     'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),      
+  //     'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),
   //     // quote: "30425068562906504830"
   //     // quoteDecimals: "30.42506856290650483"
   //     // quoteGasAdjusted: "30424380351955054160"
@@ -241,7 +241,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
   //     feePath: routeStr,
   //     'path': tokenPath,
   //     'quoteDecimals': quote.toFixed(10),
-      
+
   //   };
 
   //  return response;
@@ -601,7 +601,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
         return;
       }
 
-      const responseJson = QuoteRoutes.getSwapResults(
+      const responseJson = this.getSwapResults(
         requestBody.amount,
         result?.route,
         result?.quote,
