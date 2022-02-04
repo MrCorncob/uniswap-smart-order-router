@@ -100,6 +100,11 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
     let routerStringArray = [];
 
+    let trade_fees = [];
+    let trade_paths = [];
+
+    let multi_router = routeAmounts.length > 1
+
     for (let i = 0; i < routeAmounts.length; i++) {
 
 
@@ -111,12 +116,14 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
       let routerStr = `[${route!.protocol }] ${route!.percent.toFixed(2)}% = `;
 
+      let trade_fee = []
+      let trade_path = [];
 
       for (let k = 0; k < routerPool!.pools.length; k++) {
 
         const pool = routerPool.pools[k];
 
-        let poolStr = `${pool!.token0.symbol} -- ${pool!.fee / 10000}% --> ${pool!.token1.symbol}`;
+        let poolStr = `${pool!.token0.symbol} -- ${pool!.fee / 10000}% --> ${pool!.token1.symbol}`;        
 
         // console.log("amountString=>", route!.amount!.numerator.toString());
         // console.log("amountString=>", route!.amount!.toFixed(10));
@@ -141,6 +148,11 @@ export class QuoteRoutes extends CommonRoutesConfig {
           "tokenIn": pool!.token0,
           "tokenOut": pool!.token1,
         };
+
+        trade_fee.push(pool!.fee)
+
+        trade_path.push(pool!.token0.address)
+        trade_path.push(pool!.token1.address)
 
         if (routerPool!.pools.length == 1 ){
 
@@ -169,6 +181,9 @@ export class QuoteRoutes extends CommonRoutesConfig {
         poolArray.push(routeObject);
       }
 
+      trade_fees.push(trade_fee)
+      trade_paths.push(trade_path)
+
       routeArray.push(poolArray)
 
       routerStringArray.push(routerStr)
@@ -195,6 +210,9 @@ export class QuoteRoutes extends CommonRoutesConfig {
       gasUsedQuoteToken: estimatedGasUsedQuoteToken.toFixed(6),
       gasUsedUSD: estimatedGasUsedUSD.toFixed(6),
       route: routeArray,
+      multiRouter: multi_router,
+      fees: multi_router ? trade_fees : trade_fees[0],
+      paths: multi_router ? trade_paths : trade_paths[0],
       routerString: routerStringArray.join(', '),
     };
 
