@@ -102,6 +102,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
     let trade_fees = [];
     let trade_paths = [];
+    let percents = []
 
     let multi_router = routeAmounts.length > 1
 
@@ -181,6 +182,8 @@ export class QuoteRoutes extends CommonRoutesConfig {
         poolArray.push(routeObject);
       }
 
+      percents.push(route!.percent)
+
       trade_fees.push(trade_fee)
       trade_paths.push(trade_path)
 
@@ -213,6 +216,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
       multiRouter: multi_router,
       fees: multi_router ? trade_fees : trade_fees[0],
       paths: multi_router ? trade_paths : trade_paths[0],
+      percents: percents,
       routerString: routerStringArray.join(', '),
     };
 
