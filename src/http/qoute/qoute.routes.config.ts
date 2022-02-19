@@ -122,9 +122,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
       for (let k = 0; k < routerPool!.pools.length; k++) {
 
-        const pool = routerPool.pools[k];
-
-        let poolStr = `${pool!.token0.symbol} -- ${pool!.fee / 10000}% --> ${pool!.token1.symbol}`;        
+        const pool = routerPool.pools[k];        
 
         // console.log("amountString=>", route!.amount!.numerator.toString());
         // console.log("amountString=>", route!.amount!.toFixed(10));
@@ -150,10 +148,17 @@ export class QuoteRoutes extends CommonRoutesConfig {
           "tokenOut": pool!.token1,
         };
 
+        // swap index token in/out:
+        if (pool!.token0.address === routerPool?.tokenPath[1]?.address && pool!.token1.address === routerPool?.tokenPath[0]?.address) {
+          routeObject['tokenIn'] = pool!.token1;
+          routeObject['tokenOut'] = pool!.token0;
+        }
+        let poolStr = `${routeObject['tokenIn'].symbol} -- ${pool!.fee / 10000}% --> ${routeObject['tokenOut'].symbol}`;        
+
         trade_fee.push(pool!.fee)
 
-        trade_path.push(pool!.token0.address)
-        trade_path.push(pool!.token1.address)
+        trade_path.push(routeObject['tokenIn'].address)
+        trade_path.push(routeObject['tokenOut'].address)
 
         if (routerPool!.pools.length == 1 ){
 
