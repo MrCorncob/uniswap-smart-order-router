@@ -118,7 +118,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
       let routerStr = `[${route!.protocol }] ${route!.percent.toFixed(2)}% = `;
 
       let trade_fee = []
-      let trade_path = [];
+      // let trade_path = [];
 
       for (let k = 0; k < routerPool!.pools.length; k++) {
 
@@ -157,8 +157,8 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
         trade_fee.push(pool!.fee)
 
-        trade_path.push(routeObject['tokenIn'].address)
-        trade_path.push(routeObject['tokenOut'].address)
+        // trade_path.push(routeObject['tokenIn'].address)
+        // trade_path.push(routeObject['tokenOut'].address)
 
         if (routerPool!.pools.length == 1 ){
 
@@ -185,6 +185,12 @@ export class QuoteRoutes extends CommonRoutesConfig {
         routerStr = `${routerStr}${poolStr}`
 
         poolArray.push(routeObject);
+      }
+
+      // trade path:
+      let trade_path = [];
+      for (let x = 0; x < routerPool!.tokenPath.length; x++) {
+        trade_path.push(routerPool!.tokenPath[x]?.address)
       }
 
       percents.push(route!.percent)
