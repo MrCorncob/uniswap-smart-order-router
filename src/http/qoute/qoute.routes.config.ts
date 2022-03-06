@@ -159,25 +159,28 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
         // trade_path.push(routeObject['tokenIn'].address)
         // trade_path.push(routeObject['tokenOut'].address)
+        
 
         if (routerPool!.pools.length == 1 ){
 
           let keyInt = 'amountIn';
-          routeObject[keyInt] = route!.amount!.toFixed(10);
+          routeObject[keyInt] = route!.amount!.toFixed(route!.amount.currency.decimals);
 
           let keyOut = 'amountOut';
-          routeObject[keyOut] = route!.quote.toFixed(10);
+          console.log("route!.quote=====>", route!.quote.currency.decimals)
+          routeObject[keyOut] = route!.quote.toFixed(route!.quote.currency.decimals);
+          
 
         } else {
 
           if (k==0) {
             let keyInt = 'amountIn';
-            routeObject[keyInt] = route!.amount!.toFixed(10);
+            routeObject[keyInt] = route!.amount!.toFixed(route!.amount.currency.decimals);
           }
 
           if (k == 1) {
             let keyOut = 'amountOut';
-            routeObject[keyOut] = route!.quote.toFixed(10);
+            routeObject[keyOut] = route!.quote.toFixed(route!.quote.currency.decimals);
           }
 
         }
@@ -214,13 +217,13 @@ export class QuoteRoutes extends CommonRoutesConfig {
     let response = {
       // amount: ethers.utils.parseEther(amountDecimals).toString(),
       amountIn: amountDecimals,
-      amountOut: quote.toFixed(10),
+      amountOut: quote.toFixed(quote.currency.decimals),
       amountOutRaw:quote!.numerator.toString(),
 
       blockNumber: blockNumber.toString(),
       estimatedGasUsed: estimatedGasUsed.toString(),
       gasPriceWei: gasPriceWei.toString(),
-      gasAdjustedQuoteIn: quoteGasAdjusted.toFixed(10),
+      gasAdjustedQuoteIn: quoteGasAdjusted.toFixed(quoteGasAdjusted.currency.decimals),
       gasUsedQuoteToken: estimatedGasUsedQuoteToken.toFixed(6),
       gasUsedUSD: estimatedGasUsedUSD.toFixed(6),
       route: routeArray,
@@ -624,6 +627,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
       const result = await that.doProcess({flags: requestBody});
 
+      // print full data
       // console.log("result=>", JSON.stringify(result))
       //console.log("routeAmounts=>", JSON.stringify(routeAmounts));
 
