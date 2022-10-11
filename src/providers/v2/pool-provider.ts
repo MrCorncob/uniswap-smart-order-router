@@ -1,9 +1,10 @@
+import { BigNumber } from '@ethersproject/bignumber';
 import { Token } from '@uniswap/sdk-core';
 import { Pair } from '@uniswap/v2-sdk';
-import { default as AsyncRetry, default as retry } from 'async-retry';
-import { BigNumber } from 'ethers';
+import retry, { Options as RetryOptions } from 'async-retry';
 import _ from 'lodash';
-import { IUniswapV2Pair__factory } from '../../types/v2';
+
+import { IUniswapV2Pair__factory } from '../../types/v2/factories/IUniswapV2Pair__factory';
 import { ChainId, CurrencyAmount } from '../../util';
 import { log } from '../../util/log';
 import { poolToString } from '../../util/routes';
@@ -54,7 +55,7 @@ export type V2PoolAccessor = {
   getAllPools: () => Pair[];
 };
 
-export type V2PoolRetryOptions = AsyncRetry.Options;
+export type V2PoolRetryOptions = RetryOptions;
 
 export class V2PoolProvider implements IV2PoolProvider {
   // Computing pool addresses is slow as it requires hashing, encoding etc.
@@ -85,7 +86,7 @@ export class V2PoolProvider implements IV2PoolProvider {
     const sortedTokenPairs: Array<[Token, Token]> = [];
     const sortedPoolAddresses: string[] = [];
 
-    for (let tokenPair of tokenPairs) {
+    for (const tokenPair of tokenPairs) {
       const [tokenA, tokenB] = tokenPair;
 
       const { poolAddress, token0, token1 } = this.getPoolAddress(

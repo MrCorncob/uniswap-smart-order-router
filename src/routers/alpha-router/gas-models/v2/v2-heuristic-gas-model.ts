@@ -2,21 +2,23 @@ import { BigNumber } from '@ethersproject/bignumber';
 import { Token } from '@uniswap/sdk-core';
 import { Pair } from '@uniswap/v2-sdk';
 import _ from 'lodash';
+
 import { IV2PoolProvider } from '../../../../providers/v2/pool-provider';
 import { ChainId, log, WRAPPED_NATIVE_CURRENCY } from '../../../../util';
 import { CurrencyAmount } from '../../../../util/amounts';
 import { V2RouteWithValidQuote } from '../../entities/route-with-valid-quote';
 import {
+  BuildV2GasModelFactoryType,
   IGasModel,
   IV2GasModelFactory,
   usdGasTokensByChain,
 } from '../gas-model';
 
 // Constant cost for doing any swap regardless of pools.
-const BASE_SWAP_COST = BigNumber.from(115000);
+export const BASE_SWAP_COST = BigNumber.from(135000); // 115000, bumped up by 20_000 @eric 7/8/2022
 
 // Constant per extra hop in the route.
-const COST_PER_EXTRA_HOP = BigNumber.from(20000);
+export const COST_PER_EXTRA_HOP = BigNumber.from(50000); // 20000, bumped up by 30_000 @eric 7/8/2022
 
 /**
  * Computes a gas estimate for a V2 swap using heuristics.
@@ -40,12 +42,12 @@ export class V2HeuristicGasModelFactory extends IV2GasModelFactory {
     super();
   }
 
-  public async buildGasModel(
-    chainId: ChainId,
-    gasPriceWei: BigNumber,
-    poolProvider: IV2PoolProvider,
-    token: Token
-  ): Promise<IGasModel<V2RouteWithValidQuote>> {
+  public async buildGasModel({
+    chainId,
+    gasPriceWei,
+    poolProvider,
+    token,
+  }: BuildV2GasModelFactoryType): Promise<IGasModel<V2RouteWithValidQuote>> {
     if (token.equals(WRAPPED_NATIVE_CURRENCY[chainId]!)) {
       const usdPool: Pair = await this.getHighestLiquidityUSDPool(
         chainId,
@@ -87,6 +89,11 @@ export class V2HeuristicGasModelFactory extends IV2GasModelFactory {
       token,
       poolProvider
     );
+    if (!ethPool) {
+      log.info(
+        'Unable to find ETH pool with the quote token to produce gas adjusted costs. Route will not account for gas.'
+      );
+    }
 
     const usdPool: Pair = await this.getHighestLiquidityUSDPool(
       chainId,
@@ -107,9 +114,6 @@ export class V2HeuristicGasModelFactory extends IV2GasModelFactory {
         );
 
         if (!ethPool) {
-          log.info(
-            'Unable to find ETH pool with the quote token to produce gas adjusted costs. Route will not account for gas.'
-          );
           return {
             gasEstimate: gasUse,
             gasCostInToken: CurrencyAmount.fromRawAmount(token, 0),
@@ -204,10 +208,15 @@ export class V2HeuristicGasModelFactory extends IV2GasModelFactory {
     const poolAccessor = await poolProvider.getPools([[weth, token]]);
     const pool = poolAccessor.getPool(weth, token);
 
-    if (!pool) {
+    if (!pool || pool.reserve0.equalTo(0) || pool.reserve1.equalTo(0)) {
       log.error(
-        { weth, token },
-        `Could not find a WETH pool with ${token.symbol} for computing gas costs.`
+        {
+          weth,
+          token,
+          reserve0: pool?.reserve0.toExact(),
+          reserve1: pool?.reserve1.toExact(),
+        },
+        `Could not find a valid WETH pool with ${token.symbol} for computing gas costs.`
       );
 
       return null;
@@ -233,7 +242,11 @@ export class V2HeuristicGasModelFactory extends IV2GasModelFactory {
       WRAPPED_NATIVE_CURRENCY[chainId]!,
     ]);
     const poolAccessor = await poolProvider.getPools(usdPools);
-    const pools = poolAccessor.getAllPools();
+    const poolsRaw = poolAccessor.getAllPools();
+    const pools = _.filter(
+      poolsRaw,
+      (pool) => pool.reserve0.greaterThan(0) && pool.reserve1.greaterThan(0)
+    );
 
     if (pools.length == 0) {
       log.error(

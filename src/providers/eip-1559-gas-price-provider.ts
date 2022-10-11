@@ -1,6 +1,9 @@
-import { BigNumber, providers } from 'ethers';
+import { BigNumber } from '@ethersproject/bignumber';
+import { JsonRpcProvider } from '@ethersproject/providers';
 import _ from 'lodash';
+
 import { log } from '../util/log';
+
 import { GasPrice, IGasPriceProvider } from './gas-price-provider';
 
 export type RawFeeHistoryResponse = {
@@ -33,7 +36,7 @@ const DEFAULT_BLOCKS_TO_LOOK_BACK = 4;
  */
 export class EIP1559GasPriceProvider extends IGasPriceProvider {
   constructor(
-    protected provider: providers.JsonRpcProvider,
+    protected provider: JsonRpcProvider,
     private priorityFeePercentile: number = DEFAULT_PRIORITY_FEE_PERCENTILE,
     private blocksToConsider: number = DEFAULT_BLOCKS_TO_LOOK_BACK
   ) {
@@ -42,7 +45,11 @@ export class EIP1559GasPriceProvider extends IGasPriceProvider {
 
   public async getGasPrice(): Promise<GasPrice> {
     const feeHistoryRaw = (await this.provider.send('eth_feeHistory', [
-      this.blocksToConsider,
+      /**
+       * @fix Use BigNumber.from(this.blocksToConsider).toHexString() after hardhat adds support
+       * @see https://github.com/NomicFoundation/hardhat/issues/1585 .___.
+       */
+      BigNumber.from(this.blocksToConsider).toHexString().replace('0x0', '0x'),
       'latest',
       [this.priorityFeePercentile],
     ])) as RawFeeHistoryResponse;

@@ -1,4 +1,10 @@
-import { CondensedAddLiquidityOptions, Trade } from '@uniswap/router-sdk';
+import { BigNumber } from '@ethersproject/bignumber';
+import {
+  CondensedAddLiquidityOptions,
+  MixedRouteSDK,
+  Protocol,
+  Trade,
+} from '@uniswap/router-sdk';
 import {
   Currency,
   Fraction,
@@ -13,12 +19,20 @@ import {
   Position,
   Route as V3RouteRaw,
 } from '@uniswap/v3-sdk';
-import { BigNumber } from 'ethers';
+
 import { CurrencyAmount } from '../util/amounts';
+
 import { RouteWithValidQuote } from './alpha-router';
 
-export class V3Route extends V3RouteRaw<Token, Token> {}
-export class V2Route extends V2RouteRaw<Token, Token> {}
+export class V3Route extends V3RouteRaw<Token, Token> {
+  protocol: Protocol.V3 = Protocol.V3;
+}
+export class V2Route extends V2RouteRaw<Token, Token> {
+  protocol: Protocol.V2 = Protocol.V2;
+}
+export class MixedRoute extends MixedRouteSDK<Token, Token> {
+  protocol: Protocol.MIXED = Protocol.MIXED;
+}
 
 export type SwapRoute = {
   /**
@@ -66,6 +80,10 @@ export type SwapRoute = {
    * The calldata to execute the swap. Only returned if swapConfig was provided when calling the router.
    */
   methodParameters?: MethodParameters;
+  /**
+   * Flag that is true if and only if simulation is requested and simulation fails
+   */
+  simulationError?: boolean;
 };
 
 export type SwapToRatioRoute = SwapRoute & {
@@ -102,6 +120,7 @@ export type SwapOptions = {
   recipient: string;
   slippageTolerance: Percent;
   deadline: number;
+  simulate?: { fromAddress: string };
   inputTokenPermit?: {
     v: 0 | 1 | 27 | 28;
     r: string;

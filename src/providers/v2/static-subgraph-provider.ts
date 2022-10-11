@@ -1,6 +1,7 @@
 import { Token } from '@uniswap/sdk-core';
 import { Pair } from '@uniswap/v2-sdk';
 import _ from 'lodash';
+
 import { ChainId, WRAPPED_NATIVE_CURRENCY } from '../../util/chains';
 import { log } from '../../util/log';
 import {
@@ -11,6 +12,7 @@ import {
   USDT_MAINNET,
   WBTC_MAINNET,
 } from '../token-provider';
+
 import { IV2SubgraphProvider, V2SubgraphPool } from './subgraph-provider';
 
 type ChainTokenList = {
@@ -33,13 +35,17 @@ const BASES_TO_CHECK_TRADES_AGAINST: ChainTokenList = {
   ],
   [ChainId.GÖRLI]: [WRAPPED_NATIVE_CURRENCY[ChainId.GÖRLI]!],
   [ChainId.KOVAN]: [WRAPPED_NATIVE_CURRENCY[ChainId.KOVAN]!],
-  //v2 not deployed on optimism/arbitrum or their testnets
+  //v2 not deployed on [optimism, arbitrum, polygon, celo, gnosis, moonbeam] and their testnets
   [ChainId.OPTIMISM]: [],
   [ChainId.ARBITRUM_ONE]: [],
   [ChainId.ARBITRUM_RINKEBY]: [],
   [ChainId.OPTIMISTIC_KOVAN]: [],
   [ChainId.POLYGON]: [],
   [ChainId.POLYGON_MUMBAI]: [],
+  [ChainId.CELO]: [],
+  [ChainId.CELO_ALFAJORES]: [],
+  [ChainId.GNOSIS]: [],
+  [ChainId.MOONBEAM]: [],
 };
 
 /**
@@ -64,7 +70,7 @@ export class StaticV2SubgraphProvider implements IV2SubgraphProvider {
     log.info('In static subgraph provider for V2');
     const bases = BASES_TO_CHECK_TRADES_AGAINST[this.chainId];
 
-    let basePairs: [Token, Token][] = _.flatMap(
+    const basePairs: [Token, Token][] = _.flatMap(
       bases,
       (base): [Token, Token][] => bases.map((otherBase) => [base, otherBase])
     );
@@ -113,6 +119,7 @@ export class StaticV2SubgraphProvider implements IV2SubgraphProvider {
           },
           supply: 100,
           reserve: 100,
+          reserveUSD: 100,
         };
       })
       .compact()

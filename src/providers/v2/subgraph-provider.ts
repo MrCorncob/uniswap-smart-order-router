@@ -1,8 +1,9 @@
 import { Token } from '@uniswap/sdk-core';
-import { default as retry } from 'async-retry';
+import retry from 'async-retry';
 import Timeout from 'await-timeout';
 import { gql, GraphQLClient } from 'graphql-request';
 import _ from 'lodash';
+
 import { ChainId } from '../../util/chains';
 import { log } from '../../util/log';
 import { ProviderConfig } from '../provider';
@@ -17,6 +18,7 @@ export interface V2SubgraphPool {
   };
   supply: number;
   reserve: number;
+  reserveUSD: number;
 }
 
 type RawV2SubgraphPool = {
@@ -30,8 +32,8 @@ type RawV2SubgraphPool = {
     id: string;
   };
   totalSupply: string;
-  reserveETH: string;
   trackedReserveETH: string;
+  reserveUSD: string;
 };
 
 const SUBGRAPH_URL_BY_CHAIN: { [chainId in ChainId]?: string } = {
@@ -95,8 +97,8 @@ export class V2SubgraphProvider implements IV2SubgraphProvider {
           token0 { id, symbol }
           token1 { id, symbol }
           totalSupply
-          reserveETH
           trackedReserveETH
+          reserveUSD
         }
       }
     `;
@@ -116,7 +118,7 @@ export class V2SubgraphProvider implements IV2SubgraphProvider {
         const timeout = new Timeout();
 
         const getPools = async (): Promise<RawV2SubgraphPool[]> => {
-          let lastId: string = '';
+          let lastId = '';
           let pairs: RawV2SubgraphPool[] = [];
           let pairsPage: RawV2SubgraphPool[] = [];
 
@@ -151,6 +153,7 @@ export class V2SubgraphProvider implements IV2SubgraphProvider {
           return pairs;
         };
 
+        /* eslint-disable no-useless-catch */
         try {
           const getPoolsPromise = getPools();
           const timerPromise = timeout.set(this.timeout).then(() => {
@@ -165,6 +168,7 @@ export class V2SubgraphProvider implements IV2SubgraphProvider {
         } finally {
           timeout.clear();
         }
+        /* eslint-enable no-useless-catch */
       },
       {
         retries: this.retries,
@@ -216,6 +220,7 @@ export class V2SubgraphProvider implements IV2SubgraphProvider {
           },
           supply: parseFloat(pool.totalSupply),
           reserve: parseFloat(pool.trackedReserveETH),
+          reserveUSD: parseFloat(pool.reserveUSD),
         };
       });
 
