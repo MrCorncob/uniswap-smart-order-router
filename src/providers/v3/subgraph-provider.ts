@@ -1,10 +1,10 @@
 import { Token } from '@uniswap/sdk-core';
-import { default as retry } from 'async-retry';
+import retry from 'async-retry';
 import Timeout from 'await-timeout';
 import { gql, GraphQLClient } from 'graphql-request';
 import _ from 'lodash';
-import { ChainId } from '../../util/chains';
-import { log } from '../../util/log';
+
+import { ChainId, log } from '../../util';
 import { ProviderConfig } from '../provider';
 import { V2SubgraphPool } from '../v2/subgraph-provider';
 
@@ -50,11 +50,15 @@ const SUBGRAPH_URL_BY_CHAIN: { [chainId in ChainId]?: string } = {
   [ChainId.RINKEBY]:
     'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-rinkeby',
   [ChainId.OPTIMISM]:
-    'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-optmism-regen',
+    'https://api.thegraph.com/subgraphs/name/ianlapham/optimism-post-regenesis',
   [ChainId.ARBITRUM_ONE]:
     'https://api.thegraph.com/subgraphs/name/ianlapham/arbitrum-minimal',
   [ChainId.POLYGON]:
     'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
+  [ChainId.CELO]:
+    'https://api.thegraph.com/subgraphs/name/jesse-sawa/uniswap-celo',
+  [ChainId.GÖRLI]:
+    'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-gorli',
 };
 
 const PAGE_SIZE = 1000; // 1k is max possible query size from subgraph.
@@ -137,7 +141,7 @@ export class V3SubgraphProvider implements IV3SubgraphProvider {
         const timeout = new Timeout();
 
         const getPools = async (): Promise<RawV3SubgraphPool[]> => {
-          let lastId: string = '';
+          let lastId = '';
           let pools: RawV3SubgraphPool[] = [];
           let poolsPage: RawV3SubgraphPool[] = [];
 
@@ -159,6 +163,7 @@ export class V3SubgraphProvider implements IV3SubgraphProvider {
           return pools;
         };
 
+        /* eslint-disable no-useless-catch */
         try {
           const getPoolsPromise = getPools();
           const timerPromise = timeout.set(this.timeout).then(() => {
@@ -173,6 +178,7 @@ export class V3SubgraphProvider implements IV3SubgraphProvider {
         } finally {
           timeout.clear();
         }
+        /* eslint-enable no-useless-catch */
       },
       {
         retries: this.retries,

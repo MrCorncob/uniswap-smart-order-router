@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 import Logger from 'bunyan';
 
 class NullLogger implements Logger {
@@ -27,7 +29,7 @@ class NullLogger implements Logger {
     return;
   }
   fields: any;
-  src: boolean = true;
+  src = true;
   trace(): boolean;
   trace(error: Error, ...params: any[]): void;
   trace(obj: Object, ...params: any[]): void;

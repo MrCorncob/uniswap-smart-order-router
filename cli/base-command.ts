@@ -1,16 +1,14 @@
 /// <reference types="./types/bunyan-debug-stream" />
+import { BigNumber } from '@ethersproject/bignumber';
+import { JsonRpcProvider } from '@ethersproject/providers';
 import { Command, flags } from '@oclif/command';
 import { ParserOutput } from '@oclif/parser/lib/parse';
 import DEFAULT_TOKEN_LIST from '@uniswap/default-token-list';
 import { Currency, CurrencyAmount, Token } from '@uniswap/sdk-core';
 import { MethodParameters } from '@uniswap/v3-sdk';
-import { default as bunyan, default as Logger } from 'bunyan';
+import bunyan, { default as Logger } from 'bunyan';
 import bunyanDebugStream from 'bunyan-debug-stream';
-import { Pool } from '@uniswap/v3-sdk';
 import _ from 'lodash';
-import { BigNumber, ethers } from 'ethers';
-
-// import { V2Route, V3Route } from '../routers/router';
 import NodeCache from 'node-cache';
 import {
   AlphaRouter,
@@ -23,6 +21,7 @@ import {
   GasPrice,
   ID_TO_CHAIN_ID,
   ID_TO_PROVIDER,
+  ID_TO_NETWORK_NAME,
   IRouter,
   ISwapToRatio,
   ITokenProvider,
@@ -30,15 +29,15 @@ import {
   LegacyRouter,
   MetricLogger,
   NodeJSCache,
-  // routeAmountsToString,
+  OnChainQuoteProvider,
+  routeAmountsToString,
   RouteWithValidQuote,
   setGlobalLogger,
   setGlobalMetric,
   TokenProvider,
   UniswapMulticallProvider,
   V3PoolProvider,
-  V3QuoteProvider,
-  V3Route,
+  V3RouteWithValidQuote,
 } from '../src';
 import { LegacyGasPriceProvider } from '../src/providers/legacy-gas-price-provider';
 import { OnChainGasPriceProvider } from '../src/providers/on-chain-gas-price-provider';
@@ -209,16 +208,16 @@ export abstract class BaseCommand extends Command {
       setGlobalLogger(this.logger);
     }
 
-    const metricLogger: MetricLogger = new MetricLogger();
-    setGlobalMetric(metricLogger);
-
     const chainId = ID_TO_CHAIN_ID(chainIdNumb);
     const chainProvider = ID_TO_PROVIDER(chainId);
 
-    const provider = new ethers.providers.JsonRpcProvider(
-      chainProvider,
-      chainId
-    );
+    const metricLogger: MetricLogger = new MetricLogger({ 
+      chainId: chainIdNumb, 
+      networkName: ID_TO_NETWORK_NAME(chainId) 
+    });
+    setGlobalMetric(metricLogger);
+
+    const provider = new JsonRpcProvider(chainProvider, chainId);
     this._blockNumber = await provider.getBlockNumber();
 
     const tokenCache = new NodeJSCache<Token>(
@@ -258,7 +257,7 @@ export abstract class BaseCommand extends Command {
         chainId,
         multicall2Provider,
         poolProvider: new V3PoolProvider(chainId, multicall2Provider),
-        quoteProvider: new V3QuoteProvider(
+        quoteProvider: new OnChainQuoteProvider(
           chainId,
           provider,
           multicall2Provider
@@ -304,64 +303,48 @@ export abstract class BaseCommand extends Command {
     estimatedGasUsed: BigNumber,
     gasPriceWei: BigNumber
   ) {
+    this.logger.info(`Best Route:`);
+    this.logger.info(`${routeAmountsToString(routeAmounts)}`);
 
-    if (methodParameters != undefined  && estimatedGasUsed != undefined && gasPriceWei != undefined &&  blockNumber != undefined) {
+    this.logger.info(`\tRaw Quote Exact In:`);
+    this.logger.info(
+      `\t\t${quote.toFixed(Math.min(quote.currency.decimals, 2))}`
+    );
+    this.logger.info(`\tGas Adjusted Quote In:`);
+    this.logger.info(
+      `\t\t${quoteGasAdjusted.toFixed(
+        Math.min(quoteGasAdjusted.currency.decimals, 2)
+      )}`
+    );
+    this.logger.info(``);
+    this.logger.info(
+      `Gas Used Quote Token: ${estimatedGasUsedQuoteToken.toFixed(
+        Math.min(estimatedGasUsedQuoteToken.currency.decimals, 6)
+      )}`
+    );
+    this.logger.info(
+      `Gas Used USD: ${estimatedGasUsedUSD.toFixed(
+        Math.min(estimatedGasUsedUSD.currency.decimals, 6)
+      )}`
+    );
+    this.logger.info(`Calldata: ${methodParameters?.calldata}`);
+    this.logger.info(`Value: ${methodParameters?.value}`);
+    this.logger.info({
+      blockNumber: blockNumber.toString(),
+      estimatedGasUsed: estimatedGasUsed.toString(),
+      gasPriceWei: gasPriceWei.toString(),
+    });
 
+    const v3Routes: V3RouteWithValidQuote[] =
+      routeAmounts as V3RouteWithValidQuote[];
+    let total = BigNumber.from(0);
+    for (let i = 0; i < v3Routes.length; i++) {
+      const route = v3Routes[i]!;
+      const tick = BigNumber.from(
+        Math.max(1, _.sum(route.initializedTicksCrossedList))
+      );
+      total = total.add(tick);
     }
-
-
-    const pools = routeAmounts[0]!.route as V3Route
-    const tokenPath = _.map(routeAmounts[0]!.tokenPath, (token) => `${token.address}`);
-
-    const routeStr = [];
-
-    const poolFeePath = _.map(pools.pools, (pool) => `${pool instanceof Pool ? `${pool.fee}` : '0'}`);
-
-
-
-    for (let i = 0; i < tokenPath.length-1; i++) {
-
-      let object = {
-          "token_address_0" : tokenPath[i],
-          "token_address_1" : tokenPath[i+1],
-          "fee": poolFeePath[i]
-        };
-
-      routeStr.push(object);
-    }
-
-    let response = {
-      // 'feePath': routeAmountsToString(routeAmounts),
-      feePath: routeStr,
-      'path': tokenPath,
-      'exactIn': quote.toFixed(10),
-      'gasAdjustedQuoteIn': quoteGasAdjusted.toFixed(10),
-      'gasUsedQuoteToken:': estimatedGasUsedQuoteToken.toFixed(6),
-      'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),
-    };
-
-    this.logger.info(JSON.stringify(response));
-    this.logger.info('hello xxx');
-
-    // this.logger.info(`Best Route:`);
-    // this.logger.info(JSON.stringify(routeAmounts));
-    // this.logger.info(`${routeAmountsToString(routeAmounts)}`);
-
-    // this.logger.info(`\tRaw Quote Exact In:`);
-    // this.logger.info(`\t\t${quote.toFixed(10)}`);
-    // this.logger.info(`\tGas Adjusted Quote In:`);
-    // this.logger.info(`\t\t${quoteGasAdjusted.toFixed(2)}`);
-    // this.logger.info(``);
-    // this.logger.info(
-    //   `Gas Used Quote Token: ${estimatedGasUsedQuoteToken.toFixed(6)}`
-    // );
-    // this.logger.info(`Gas Used USD: ${estimatedGasUsedUSD.toFixed(6)}`);
-    // this.logger.info(`Calldata: ${methodParameters?.calldata}`);
-    // this.logger.info(`Value: ${methodParameters?.value}`);
-    // this.logger.info({
-    //   blockNumber: blockNumber.toString(),
-    //   estimatedGasUsed: estimatedGasUsed.toString(),
-    //   gasPriceWei: gasPriceWei.toString(),
-    // });
+    this.logger.info(`Total ticks crossed: ${total}`);
   }
 }

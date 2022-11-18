@@ -1,13 +1,18 @@
 import { Token } from '@uniswap/sdk-core';
 import { FeeAmount, Pool } from '@uniswap/v3-sdk';
+import _ from 'lodash';
+
 import { ChainId } from '../../util/chains';
 import { log } from '../../util/log';
+
 import { ICache } from './../cache';
 import { ProviderConfig } from './../provider';
 import { IV3PoolProvider, V3PoolAccessor } from './pool-provider';
 
 /**
  * Provider for getting V3 pools, with functionality for caching the results.
+ * Does not cache by block because we compute quotes using the on-chain quoter
+ * so do not mind if the liquidity values are out of date.
  *
  * @export
  * @class CachingV3PoolProvider
@@ -63,9 +68,19 @@ export class CachingV3PoolProvider implements IV3PoolProvider {
     }
 
     log.info(
+      {
+        poolsFound: _.map(
+          Object.values(poolAddressToPool),
+          (p) => `${p.token0.symbol} ${p.token1.symbol} ${p.fee}`
+        ),
+        poolsToGetTokenPairs: _.map(
+          poolsToGetTokenPairs,
+          (t) => `${t[0].symbol} ${t[1].symbol} ${t[2]}`
+        ),
+      },
       `Found ${
         Object.keys(poolAddressToPool).length
-      } pools already in local cache. About to get liquidity and slot0s for ${
+      } V3 pools already in local cache. About to get liquidity and slot0s for ${
         poolsToGetTokenPairs.length
       } pools.`
     );

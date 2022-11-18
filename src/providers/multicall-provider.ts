@@ -1,5 +1,6 @@
 import { Interface } from '@ethersproject/abi';
-import { BigNumber } from 'ethers';
+import { BigNumber } from '@ethersproject/bignumber';
+
 import { ProviderConfig } from './provider';
 
 export type CallSameFunctionOnMultipleContractsParams<
@@ -22,6 +23,18 @@ export type CallSameFunctionOnContractWithMultipleParams<
   contractInterface: Interface;
   functionName: string;
   functionParams: TFunctionParams[];
+  providerConfig?: ProviderConfig;
+  additionalConfig?: TAdditionalConfig;
+};
+
+export type CallMultipleFunctionsOnSameContractParams<
+  TFunctionParams,
+  TAdditionalConfig = any
+> = {
+  address: string;
+  contractInterface: Interface;
+  functionNames: string[];
+  functionParams?: TFunctionParams[];
   providerConfig?: ProviderConfig;
   additionalConfig?: TAdditionalConfig;
 };
@@ -89,6 +102,19 @@ export abstract class IMulticallProvider<TMulticallConfig = any> {
     TReturn = any
   >(
     params: CallSameFunctionOnContractWithMultipleParams<
+      TFunctionParams,
+      TMulticallConfig
+    >
+  ): Promise<{
+    blockNumber: BigNumber;
+    results: Result<TReturn>[];
+  }>;
+
+  public abstract callMultipleFunctionsOnSameContract<
+    TFunctionParams extends any[] | undefined,
+    TReturn = any
+  >(
+    params: CallMultipleFunctionsOnSameContractParams<
       TFunctionParams,
       TMulticallConfig
     >

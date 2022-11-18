@@ -1,34 +1,20 @@
 /// <reference types="../../cli/types/bunyan-debug-stream" />
-import {CommonRoutesConfig} from '../common/common.routes.config';
-import express from 'express';
-import RequestDTOSchema from './qoute.dto.config';
-// import JSBI from 'jsbi';
-import {
-  AlphaRouter,
-  IRouter,
-  ISwapToRatio, LegacyRouter,
-  MetricLogger, RouteWithValidQuote,
-  setGlobalMetric,
-  SwapRoute, V3Route
-} from "../../routers";
-import {Protocol} from "@uniswap/router-sdk";
-import _ from "lodash";
-import {TO_PROTOCOL} from "../../util/protocols";
-import {
-  ID_TO_CHAIN_ID, ID_TO_PROVIDER,
-  NativeCurrencyName,
-  nativeOnChain,
-  parseAmount, setGlobalLogger
-} from "../../util";
+import DEFAULT_TOKEN_LIST from '@uniswap/default-token-list';
+import { Protocol } from '@uniswap/router-sdk';
 import {
   Currency,
   CurrencyAmount,
   Percent,
   Token,
-  TradeType
-} from "@uniswap/sdk-core";
-import {BigNumber, ethers} from "ethers";
-import {default as bunyan, default as Logger} from "bunyan";
+  TradeType,
+} from '@uniswap/sdk-core';
+import { MethodParameters } from '@uniswap/v3-sdk';
+import { default as bunyan, default as Logger } from 'bunyan';
+import bunyanDebugStream from 'bunyan-debug-stream';
+import { BigNumber, ethers } from 'ethers';
+import express from 'express';
+import _ from 'lodash';
+import NodeCache from 'node-cache';
 import {
   CachingGasStationProvider,
   CachingTokenListProvider,
@@ -36,21 +22,36 @@ import {
   EIP1559GasPriceProvider,
   GasPrice,
   ITokenProvider,
-  IV3PoolProvider, LegacyGasPriceProvider,
+  IV3PoolProvider,
+  LegacyGasPriceProvider,
   NodeJSCache,
   OnChainGasPriceProvider,
   TokenProvider,
   UniswapMulticallProvider,
   V3PoolProvider,
-  V3QuoteProvider
-} from "../../providers";
-import bunyanDebugStream from "bunyan-debug-stream";
-import NodeCache from "node-cache";
-import DEFAULT_TOKEN_LIST from '@uniswap/default-token-list';
+} from '../../providers';
+// import JSBI from 'jsbi';
 import {
-  MethodParameters,
-  // Pool
-} from "@uniswap/v3-sdk";
+  AlphaRouter,
+  IRouter,
+  ISwapToRatio,
+  MetricLogger,
+  RouteWithValidQuote,
+  setGlobalMetric,
+  SwapRoute,
+  V3Route,
+} from '../../routers';
+import {
+  ID_TO_CHAIN_ID,
+  ID_TO_PROVIDER,
+  NativeCurrencyName,
+  nativeOnChain,
+  parseAmount,
+  setGlobalLogger,
+} from '../../util';
+import { TO_PROTOCOL } from '../../util/protocols';
+import { CommonRoutesConfig } from '../common/common.routes.config';
+import RequestDTOSchema from './qoute.dto.config';
 
 // import { routeAmountsToString } from '../../util/routes';
 
@@ -66,7 +67,6 @@ export class QuoteRoutes extends CommonRoutesConfig {
   private _blockNumber: number | null = null;
   private _multicall2Provider: UniswapMulticallProvider | null = null;
 
-
   private getSwapResults(
     amountDecimals: string,
     routeAmounts: RouteWithValidQuote[],
@@ -79,16 +79,18 @@ export class QuoteRoutes extends CommonRoutesConfig {
     estimatedGasUsed: BigNumber,
     gasPriceWei: BigNumber
   ) {
-
-    if (methodParameters != undefined  && estimatedGasUsed != undefined && gasPriceWei != undefined &&  blockNumber != undefined) {
-
+    if (
+      methodParameters != undefined &&
+      estimatedGasUsed != undefined &&
+      gasPriceWei != undefined &&
+      blockNumber != undefined
+    ) {
     }
 
     // console.log("routeAmounts=>", JSON.stringify(routeAmounts));
     // console.log("amountDecimals=>", amountDecimals);
 
     // console.log("routeAmounts[0]!.amount=>", routeAmounts[0]!.amount.toFixed(10));
-
 
     // console.log("percent=>", routeAmounts[0]!.percent);
 
@@ -102,90 +104,93 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
     let trade_fees = [];
     let trade_paths = [];
-    let percents = []
+    let percents = [];
 
-    let multi_router = routeAmounts.length > 1
+    let multi_router = routeAmounts.length > 1;
 
     for (let i = 0; i < routeAmounts.length; i++) {
+      const route = routeAmounts[i];
 
-
-      const route = routeAmounts[i]
-
-      const routerPool = route!.route as V3Route
+      const routerPool = route!.route as V3Route;
 
       let poolArray = [];
 
-      let routerStr = `[${route!.protocol }] ${route!.percent.toFixed(2)}% = `;
+      let routerStr = `[${route!.protocol}] ${route!.percent.toFixed(2)}% = `;
 
-      let trade_fee = []
+      let trade_fee = [];
       // let trade_path = [];
 
       for (let k = 0; k < routerPool!.pools.length; k++) {
-
-        const pool = routerPool.pools[k];        
+        const pool = routerPool.pools[k];
 
         // console.log("amountString=>", route!.amount!.numerator.toString());
         // console.log("amountString=>", route!.amount!.toFixed(10));
 
         // protocol:
         interface RouteObject {
-          [key: string]: any
+          [key: string]: any;
         }
 
+        let routeObject: RouteObject = {
+          type: route!.protocol + '-pool',
+          poolAddress: route!.poolAddresses[i],
+          percent: route!.percent,
 
-        let routeObject:RouteObject = {
-          "type" : route!.protocol + '-pool',
-          "poolAddress" : route!.poolAddresses[i],
-          "percent": route!.percent,
+          rawQuote: route!.rawQuote.toString(),
 
-          "rawQuote": route!.rawQuote.toString(),
-
-          "fee": pool!.fee,
-          "liquidity": pool!.liquidity.toString(),
-          "sqrtRatioX96": pool!.sqrtRatioX96.toString(),
-          "tickCurrent": pool!.tickCurrent,
-          "tokenIn": pool!.token0,
-          "tokenOut": pool!.token1,
+          fee: pool!.fee,
+          liquidity: pool!.liquidity.toString(),
+          sqrtRatioX96: pool!.sqrtRatioX96.toString(),
+          tickCurrent: pool!.tickCurrent,
+          tokenIn: pool!.token0,
+          tokenOut: pool!.token1,
         };
 
         // swap index token in/out:
-        if (pool!.token0.address === routerPool?.tokenPath[1]?.address && pool!.token1.address === routerPool?.tokenPath[0]?.address) {
+        if (
+          pool!.token0.address === routerPool?.tokenPath[1]?.address &&
+          pool!.token1.address === routerPool?.tokenPath[0]?.address
+        ) {
           routeObject['tokenIn'] = pool!.token1;
           routeObject['tokenOut'] = pool!.token0;
         }
-        let poolStr = `${routeObject['tokenIn'].symbol} -- ${pool!.fee / 10000}% --> ${routeObject['tokenOut'].symbol}`;        
+        let poolStr = `${routeObject['tokenIn'].symbol} -- ${
+          pool!.fee / 10000
+        }% --> ${routeObject['tokenOut'].symbol}`;
 
-        trade_fee.push(pool!.fee)
+        trade_fee.push(pool!.fee);
 
         // trade_path.push(routeObject['tokenIn'].address)
         // trade_path.push(routeObject['tokenOut'].address)
-        
 
-        if (routerPool!.pools.length == 1 ){
-
+        if (routerPool!.pools.length == 1) {
           let keyInt = 'amountIn';
-          routeObject[keyInt] = route!.amount!.toFixed(route!.amount.currency.decimals);
+          routeObject[keyInt] = route!.amount!.toFixed(
+            route!.amount.currency.decimals
+          );
 
           let keyOut = 'amountOut';
-          console.log("route!.quote=====>", route!.quote.currency.decimals)
-          routeObject[keyOut] = route!.quote.toFixed(route!.quote.currency.decimals);
-          
-
+          console.log('route!.quote=====>', route!.quote.currency.decimals);
+          routeObject[keyOut] = route!.quote.toFixed(
+            route!.quote.currency.decimals
+          );
         } else {
-
-          if (k==0) {
+          if (k == 0) {
             let keyInt = 'amountIn';
-            routeObject[keyInt] = route!.amount!.toFixed(route!.amount.currency.decimals);
+            routeObject[keyInt] = route!.amount!.toFixed(
+              route!.amount.currency.decimals
+            );
           }
 
           if (k == 1) {
             let keyOut = 'amountOut';
-            routeObject[keyOut] = route!.quote.toFixed(route!.quote.currency.decimals);
+            routeObject[keyOut] = route!.quote.toFixed(
+              route!.quote.currency.decimals
+            );
           }
-
         }
 
-        routerStr = `${routerStr}${poolStr}`
+        routerStr = `${routerStr}${poolStr}`;
 
         poolArray.push(routeObject);
       }
@@ -193,37 +198,34 @@ export class QuoteRoutes extends CommonRoutesConfig {
       // trade path:
       let trade_path = [];
       for (let x = 0; x < routerPool!.tokenPath.length; x++) {
-        trade_path.push(routerPool!.tokenPath[x]?.address)
+        trade_path.push(routerPool!.tokenPath[x]?.address);
       }
 
-      percents.push(route!.percent)
+      percents.push(route!.percent);
 
-      trade_fees.push(trade_fee)
-      trade_paths.push(trade_path)
+      trade_fees.push(trade_fee);
+      trade_paths.push(trade_path);
 
-      routeArray.push(poolArray)
+      routeArray.push(poolArray);
 
-      routerStringArray.push(routerStr)
-
+      routerStringArray.push(routerStr);
     }
 
     // console.log("quote=>", JSBI.toNumber(quote.numerator));
     // console.log("quoteString=>", quote!.numerator.toString());
 
-
-
-
-
     let response = {
       // amount: ethers.utils.parseEther(amountDecimals).toString(),
       amountIn: amountDecimals,
       amountOut: quote.toFixed(quote.currency.decimals),
-      amountOutRaw:quote!.numerator.toString(),
+      amountOutRaw: quote!.numerator.toString(),
 
       blockNumber: blockNumber.toString(),
       estimatedGasUsed: estimatedGasUsed.toString(),
       gasPriceWei: gasPriceWei.toString(),
-      gasAdjustedQuoteIn: quoteGasAdjusted.toFixed(quoteGasAdjusted.currency.decimals),
+      gasAdjustedQuoteIn: quoteGasAdjusted.toFixed(
+        quoteGasAdjusted.currency.decimals
+      ),
       gasUsedQuoteToken: estimatedGasUsedQuoteToken.toFixed(6),
       gasUsedUSD: estimatedGasUsedUSD.toFixed(6),
       route: routeArray,
@@ -234,61 +236,58 @@ export class QuoteRoutes extends CommonRoutesConfig {
       routerString: routerStringArray.join(', '),
     };
 
-   return response;
+    return response;
 
-  //   console.log("routeArray", routeArray);
+    //   console.log("routeArray", routeArray);
 
+    //   const pools = routeAmounts[0]!.route as V3Route
+    //   const tokenPath = _.map(routeAmounts[0]!.tokenPath, (token) => `${token.address}`);
 
-  //   const pools = routeAmounts[0]!.route as V3Route
-  //   const tokenPath = _.map(routeAmounts[0]!.tokenPath, (token) => `${token.address}`);
+    //   const routeStr = [];
 
-  //   const routeStr = [];
+    //   const poolFeePath = _.map(pools.pools, (pool) => `${pool instanceof Pool ? `${pool.fee}` : '0'}`);
 
-  //   const poolFeePath = _.map(pools.pools, (pool) => `${pool instanceof Pool ? `${pool.fee}` : '0'}`);
+    //   for (let i = 0; i < tokenPath.length-1; i++) {
 
+    //     let object = {
+    //       "token_address_0" : tokenPath[i],
+    //       "token_address_1" : tokenPath[i+1],
+    //       "fee": poolFeePath[i]
+    //     };
 
+    //     routeStr.push(object);
+    //   }
 
-  //   for (let i = 0; i < tokenPath.length-1; i++) {
+    //   let response = {
+    //     // 'routeToString': routeAmountsToString(routeAmounts),
+    //     amount: ethers.utils.parseEther(amountDecimals).toString(),
+    //     amountDecimals: amountDecimals,
+    //     blockNumber: blockNumber.toString(),
+    //     estimatedGasUsed: estimatedGasUsed.toString(),
+    //     gasPriceWei: gasPriceWei.toString(),
+    //     'gasAdjustedQuoteIn': quoteGasAdjusted.toFixed(10),
+    //     'gasUsedQuoteToken:': estimatedGasUsedQuoteToken.toFixed(6),
+    //     'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),
+    //     // quote: "30425068562906504830"
+    //     // quoteDecimals: "30.42506856290650483"
+    //     // quoteGasAdjusted: "30424380351955054160"
+    //     // quoteGasAdjustedDecimals: "30.42438035195505416"
+    //     // quoteId: "16d68"
+    //     feePath: routeStr,
+    //     'path': tokenPath,
+    //     'quoteDecimals': quote.toFixed(10),
 
-  //     let object = {
-  //       "token_address_0" : tokenPath[i],
-  //       "token_address_1" : tokenPath[i+1],
-  //       "fee": poolFeePath[i]
-  //     };
+    //   };
 
-  //     routeStr.push(object);
-  //   }
-
-  //   let response = {
-  //     // 'routeToString': routeAmountsToString(routeAmounts),
-  //     amount: ethers.utils.parseEther(amountDecimals).toString(),
-  //     amountDecimals: amountDecimals,
-  //     blockNumber: blockNumber.toString(),
-  //     estimatedGasUsed: estimatedGasUsed.toString(),
-  //     gasPriceWei: gasPriceWei.toString(),
-  //     'gasAdjustedQuoteIn': quoteGasAdjusted.toFixed(10),
-  //     'gasUsedQuoteToken:': estimatedGasUsedQuoteToken.toFixed(6),
-  //     'gasUsedUSD:': estimatedGasUsedUSD.toFixed(6),
-  //     // quote: "30425068562906504830"
-  //     // quoteDecimals: "30.42506856290650483"
-  //     // quoteGasAdjusted: "30424380351955054160"
-  //     // quoteGasAdjustedDecimals: "30.42438035195505416"
-  //     // quoteId: "16d68"
-  //     feePath: routeStr,
-  //     'path': tokenPath,
-  //     'quoteDecimals': quote.toFixed(10),
-
-  //   };
-
-  //  return response;
+    //  return response;
   }
 
   get logger() {
     return this._log
       ? this._log
       : bunyan.createLogger({
-        name: 'Default Logger',
-      });
+          name: 'Default Logger',
+        });
   }
 
   get router() {
@@ -342,10 +341,10 @@ export class QuoteRoutes extends CommonRoutesConfig {
     super(app, 'QuoteRoutes');
   }
 
-  async init({data}: { data: any }) {
+  async init({ data }: { data: any }) {
     const {
       chainId: chainIdNumb,
-      router: routerStr,
+      // router: routerStr,
       debug,
       debugJSON,
       tokenListURI,
@@ -361,19 +360,19 @@ export class QuoteRoutes extends CommonRoutesConfig {
       streams: debugJSON
         ? undefined
         : [
-          {
-            level: logLevel,
-            type: 'stream',
-            stream: bunyanDebugStream({
-              basepath: __dirname,
-              forceColor: false,
-              showDate: false,
-              showPid: false,
-              showLoggerName: false,
-              showLevel: !!debug,
-            }),
-          },
-        ],
+            {
+              level: logLevel,
+              type: 'stream',
+              stream: bunyanDebugStream({
+                basepath: __dirname,
+                forceColor: false,
+                showDate: false,
+                showPid: false,
+                showLoggerName: false,
+                showLevel: !!debug,
+              }),
+            },
+          ],
     });
 
     if (debug || debugJSON) {
@@ -424,48 +423,48 @@ export class QuoteRoutes extends CommonRoutesConfig {
       tokenProviderOnChain
     );
 
-    if (routerStr == 'legacy') {
-      this._router = new LegacyRouter({
+    // if (routerStr == 'legacy') {
+    //   this._router = new LegacyRouter({
+    //     chainId,
+    //     multicall2Provider,
+    //     poolProvider: new V3PoolProvider(chainId, multicall2Provider),
+    //     quoteProvider: new V3QuoteProvider(
+    //       chainId,
+    //       provider,
+    //       multicall2Provider
+    //     ),
+    //     tokenProvider: this.tokenProvider,
+    //   });
+    // } else {
+    const gasPriceCache = new NodeJSCache<GasPrice>(
+      new NodeCache({ stdTTL: 15, useClones: true })
+    );
+
+    // const useDefaultQuoteProvider =
+    //   chainId != ChainId.ARBITRUM_ONE && chainId != ChainId.ARBITRUM_RINKEBY;
+
+    const router = new AlphaRouter({
+      provider,
+      chainId,
+      multicall2Provider: multicall2Provider,
+      gasPriceProvider: new CachingGasStationProvider(
         chainId,
-        multicall2Provider,
-        poolProvider: new V3PoolProvider(chainId, multicall2Provider),
-        quoteProvider: new V3QuoteProvider(
+        new OnChainGasPriceProvider(
           chainId,
-          provider,
-          multicall2Provider
+          new EIP1559GasPriceProvider(provider),
+          new LegacyGasPriceProvider(provider)
         ),
-        tokenProvider: this.tokenProvider,
-      });
-    } else {
-      const gasPriceCache = new NodeJSCache<GasPrice>(
-        new NodeCache({ stdTTL: 15, useClones: true })
-      );
+        gasPriceCache
+      ),
+    });
 
-      // const useDefaultQuoteProvider =
-      //   chainId != ChainId.ARBITRUM_ONE && chainId != ChainId.ARBITRUM_RINKEBY;
-
-      const router = new AlphaRouter({
-        provider,
-        chainId,
-        multicall2Provider: multicall2Provider,
-        gasPriceProvider: new CachingGasStationProvider(
-          chainId,
-          new OnChainGasPriceProvider(
-            chainId,
-            new EIP1559GasPriceProvider(provider),
-            new LegacyGasPriceProvider(provider)
-          ),
-          gasPriceCache
-        ),
-      });
-
-      this._swapToRatioRouter = router;
-      this._router = router;
-    }
+    this._swapToRatioRouter = router;
+    this._router = router;
   }
+  // }
 
-  async doProcess({flags}: { flags: any }): Promise<SwapRoute | null> {
-    console.log('doProcess', flags)
+  async doProcess({ flags }: { flags: any }): Promise<SwapRoute | null> {
+    console.log('doProcess', flags);
     const {
       tokenIn: tokenInStr,
       tokenOut: tokenOutStr,
@@ -537,10 +536,10 @@ export class QuoteRoutes extends CommonRoutesConfig {
         TradeType.EXACT_INPUT,
         recipient
           ? {
-            deadline: 100,
-            recipient,
-            slippageTolerance: new Percent(5, 10_000),
-          }
+              deadline: 100,
+              recipient,
+              slippageTolerance: new Percent(5, 10_000),
+            }
           : undefined,
         {
           blockNumber: this.blockNumber,
@@ -569,10 +568,10 @@ export class QuoteRoutes extends CommonRoutesConfig {
         TradeType.EXACT_OUTPUT,
         recipient
           ? {
-            deadline: 100,
-            recipient,
-            slippageTolerance: new Percent(5, 10_000),
-          }
+              deadline: 100,
+              recipient,
+              slippageTolerance: new Percent(5, 10_000),
+            }
           : undefined,
         {
           blockNumber: this.blockNumber - 10,
@@ -604,7 +603,6 @@ export class QuoteRoutes extends CommonRoutesConfig {
       return null;
     }
 
-
     return swapRoutes;
   }
 
@@ -612,20 +610,21 @@ export class QuoteRoutes extends CommonRoutesConfig {
     let requestBody = null;
     const that = this;
     try {
-      requestBody = await RequestDTOSchema.QuoteRequestDTO.validateAsync(_req.body);
-    }
-    catch (err: any) {
+      requestBody = await RequestDTOSchema.QuoteRequestDTO.validateAsync(
+        _req.body
+      );
+    } catch (err: any) {
       res.status(400).json({
-        error: err.message
+        error: err.message,
       });
       return;
     }
 
     try {
       // console.log("requestBody", requestBody);
-      await this.init({data: requestBody});
+      await this.init({ data: requestBody });
 
-      const result = await that.doProcess({flags: requestBody});
+      const result = await that.doProcess({ flags: requestBody });
 
       // print full data
       // console.log("result=>", JSON.stringify(result))
@@ -633,7 +632,7 @@ export class QuoteRoutes extends CommonRoutesConfig {
 
       if (!result) {
         res.status(400).json({
-          error: 'no route found'
+          error: 'no route found',
         });
         return;
       }
@@ -648,27 +647,24 @@ export class QuoteRoutes extends CommonRoutesConfig {
         result?.methodParameters,
         result?.blockNumber,
         result?.estimatedGasUsed,
-        result?.gasPriceWei);
+        result?.gasPriceWei
+      );
 
       res.status(200).json({
         message: 'ok',
-        data: responseJson
+        data: responseJson,
       });
       return;
-
     } catch (err: any) {
       res.status(500).json({
-        error: err.message
+        error: err.message,
       });
       console.error(err);
     }
-
   }
 
   configureRoutes() {
-
-    this.app.route(`/api/quote`)
-      .post(this.getQuote.bind(this));
+    this.app.route(`/api/quote`).post(this.getQuote.bind(this));
 
     return this.app;
   }

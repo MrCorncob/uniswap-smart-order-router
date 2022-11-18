@@ -3,7 +3,7 @@ import { Pair } from '@uniswap/v2-sdk';
 import { Pool } from '@uniswap/v3-sdk';
 import { log } from '../../../util/log';
 import { routeToString } from '../../../util/routes';
-import { V2Route, V3Route } from '../../router';
+import { MixedRoute, V2Route, V3Route } from '../../router';
 
 export function computeAllV3Routes(
   tokenIn: Token,
@@ -39,9 +39,33 @@ export function computeAllV2Routes(
   );
 }
 
+export function computeAllMixedRoutes(
+  tokenIn: Token,
+  tokenOut: Token,
+  parts: (Pool | Pair)[],
+  maxHops: number
+): MixedRoute[] {
+  const routesRaw = computeAllRoutes<Pool | Pair, MixedRoute>(
+    tokenIn,
+    tokenOut,
+    (route: (Pool | Pair)[], tokenIn: Token, tokenOut: Token) => {
+      return new MixedRoute(route, tokenIn, tokenOut);
+    },
+    parts,
+    maxHops
+  );
+  /// filter out pure v3 and v2 routes
+  return routesRaw.filter((route) => {
+    return (
+      !route.pools.every((pool) => pool instanceof Pool) &&
+      !route.pools.every((pool) => pool instanceof Pair)
+    );
+  });
+}
+
 export function computeAllRoutes<
   TPool extends Pair | Pool,
-  TRoute extends V3Route | V2Route
+  TRoute extends V3Route | V2Route | MixedRoute
 >(
   tokenIn: Token,
   tokenOut: Token,
@@ -49,14 +73,14 @@ export function computeAllRoutes<
   pools: TPool[],
   maxHops: number
 ): TRoute[] {
-  const poolsUsed = Array<Boolean>(pools.length).fill(false);
+  const poolsUsed = Array<boolean>(pools.length).fill(false);
   const routes: TRoute[] = [];
 
   const computeRoutes = (
     tokenIn: Token,
     tokenOut: Token,
     currentRoute: TPool[],
-    poolsUsed: Boolean[],
+    poolsUsed: boolean[],
     _previousTokenOut?: Token
   ) => {
     if (currentRoute.length > maxHops) {
@@ -104,7 +128,9 @@ export function computeAllRoutes<
   computeRoutes(tokenIn, tokenOut, [], poolsUsed);
 
   log.info(
-    { routes: routes.map(routeToString) },
+    {
+      routes: routes.map(routeToString),
+    },
     `Computed ${routes.length} possible routes.`
   );
 
